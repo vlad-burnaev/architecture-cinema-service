@@ -57,12 +57,14 @@ services:
       dockerfile: Dockerfile
     container_name: cinemaabyss-monolith
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
       PORT: 8080
       DB_CONNECTION_STRING: postgres://postgres:postgres_password@postgres:5432/cinemaabyss?sslmode=disable
+    restart: on-failure
     networks:
       - cinemaabyss-network
 
@@ -73,31 +75,33 @@ services:
       dockerfile: Dockerfile
     container_name: cinemaabyss-movies-service
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "8081:8081"
     environment:
       PORT: 8081
       DB_CONNECTION_STRING: postgres://postgres:postgres_password@postgres:5432/cinemaabyss?sslmode=disable
+    restart: on-failure
     networks:
       - cinemaabyss-network
 
-  # Events Microservice
-  events-service:
-    build:
-      context: ./src/microservices/events
-      dockerfile: Dockerfile
-    container_name: cinemaabyss-events-service
-    depends_on:
-      - postgres
-      - kafka
-    ports:
-      - "8082:8082"
-    environment:
-      PORT: 8082
-      KAFKA_BROKERS: kafka:9092
-    networks:
-      - cinemaabyss-network
+  # Events Microservice (закомментировано, пока не реализовано - Задание 2.2)
+  # events-service:
+  #   build:
+  #     context: ./src/microservices/events
+  #     dockerfile: Dockerfile
+  #   container_name: cinemaabyss-events-service
+  #   depends_on:
+  #     - postgres
+  #     - kafka
+  #   ports:
+  #     - "8082:8082"
+  #   environment:
+  #     PORT: 8082
+  #     KAFKA_BROKERS: kafka:9092
+  #   networks:
+  #     - cinemaabyss-network
 
   # Proxy Service (API Gateway)
   proxy-service:
@@ -106,9 +110,13 @@ services:
       dockerfile: Dockerfile
     container_name: cinemaabyss-proxy-service
     depends_on:
-      - monolith
-      - movies-service
-      - events-service
+      postgres:
+        condition: service_healthy
+      monolith:
+        condition: service_started
+      movies-service:
+        condition: service_started
+      # - events-service
     ports:
       - "8000:8000"
     environment:
@@ -118,6 +126,7 @@ services:
       EVENTS_SERVICE_URL: http://events-service:8082
       GRADUAL_MIGRATION: "true"
       MOVIES_MIGRATION_PERCENT: "50"
+    restart: on-failure
     networks:
       - cinemaabyss-network
 
