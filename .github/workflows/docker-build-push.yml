@@ -167,7 +167,7 @@ jobs:
         working-directory: tests/postman
         run: |
           docker build -t cinemaabyss-api-tests .
-          docker run --network=architecture-cinema-service_default -v "$(pwd)/reports:/app/reports" cinemaabyss-api-tests
+          docker run --network=cinemaabyss-network -v "$(pwd)/reports:/app/reports" cinemaabyss-api-tests
       
       - name: Upload test results
         if: always()

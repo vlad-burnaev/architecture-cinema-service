@@ -1,5 +1,7 @@
 version: '3.8'
 
+name: cinemaabyss
+
 services:
   # PostgreSQL Database
   postgres:
