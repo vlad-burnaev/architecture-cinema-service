@@ -1,0 +1,138 @@
+@startuml C4_Container_TO_BE
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Диаграмма контейнеров системы CinemaAbyss (TO-BE) - Целевая микросервисная архитектура
+
+Person(user, "Пользователь", "Web/Mobile клиент")
+Person(admin, "Администратор", "Admin Dashboard")
+
+System_Boundary(cinemaabyss, "CinemaAbyss Microservices Platform") {
+    
+    ' API Gateway
+    Container(api_gateway, "API Gateway", "Go, HTTP/gRPC", "Единая точка входа: маршрутизация, аутентификация, rate limiting, API composition", $sprite="go")
+    
+    ' Core Domain Services
+    Container(users_service, "Users Service", "Go, HTTP/gRPC", "Управление пользователями: регистрация, профили, аутентификация, JWT", $sprite="go")
+    
+    Container(movies_service, "Movies Service", "Go, HTTP/gRPC", "Каталог фильмов: CRUD, метаданные, жанры, рейтинги, поиск", $sprite="go")
+    
+    Container(payments_service, "Payments Service", "Go, HTTP/gRPC", "Обработка платежей: транзакции, интеграция с Payment Gateway, история", $sprite="go")
+    
+    Container(subscriptions_service, "Subscriptions Service", "Go, HTTP/gRPC", "Управление подписками: планы, продления, отмены, триалы", $sprite="go")
+    
+    ' Supporting Services
+    Container(events_service, "Events Service", "Go, Kafka Consumer", "Обработка событий: consume из Kafka, логирование, аналитика", $sprite="go")
+    
+    Container(notifications_service, "Notifications Service", "Go, Kafka Consumer", "Отправка уведомлений: email, SMS, push по событиям", $sprite="go")
+    
+    Container(recommendations_service, "Recommendations Service", "Go/Python, ML", "Рекомендательная система на основе просмотров и предпочтений", $sprite="go")
+    
+    Container(search_service, "Search Service", "Go, Elasticsearch", "Полнотекстовый поиск по фильмам, актерам, жанрам", $sprite="go")
+    
+    Container(analytics_service, "Analytics Service", "Go, HTTP", "Агрегация данных для бизнес-метрик и отчетов", $sprite="go")
+    
+    ' Databases (per service)
+    ContainerDb(users_db, "Users Database", "PostgreSQL", "Данные пользователей, профили, credentials", $sprite="postgresql")
+    
+    ContainerDb(movies_db, "Movies Database", "PostgreSQL", "Каталог фильмов, метаданные, жанры", $sprite="postgresql")
+    
+    ContainerDb(payments_db, "Payments Database", "PostgreSQL", "История платежей, транзакции", $sprite="postgresql")
+    
+    ContainerDb(subscriptions_db, "Subscriptions Database", "PostgreSQL", "Подписки пользователей, планы", $sprite="postgresql")
+    
+    ContainerDb(analytics_db, "Analytics Database", "PostgreSQL/ClickHouse", "Агрегированные данные для аналитики", $sprite="postgresql")
+    
+    ' Message Broker
+    Container(kafka, "Message Broker", "Apache Kafka", "Event streaming: movie-events, user-events, payment-events, subscription-events", $sprite="kafka")
+    
+    ' Caching Layer
+    Container(redis, "Cache", "Redis", "Кеширование: сессии, популярные фильмы, rate limiting", $sprite="redis")
+    
+    ' Search Engine
+    Container(elasticsearch, "Search Engine", "Elasticsearch", "Полнотекстовый поиск, индексация контента")
+    
+    ' Frontend Applications
+    Container(user_ui, "User Web App", "React/Next.js", "Клиентское веб-приложение: просмотр фильмов, управление профилем, подписки")
+    
+    Container(admin_ui, "Admin Dashboard", "React/Vue", "Веб-интерфейс администратора для управления системой")
+    
+    ' Monitoring
+    Container(monitoring, "Monitoring Stack", "Prometheus + Grafana", "Сбор метрик, алерты, визуализация")
+}
+
+' Внешние системы
+System_Ext(payment_gateway, "Payment Gateway", "Yandex.Pay")
+System_Ext(email_service, "Email Service", "Yandex Cloud Postbox")
+System_Ext(sms_service, "SMS Service", "Yandex Cloud Notification Service")
+System_Ext(storage, "Object Storage", "Yandex Object Storage")
+System_Ext(cdn, "CDN", "Yandex Cloud CDN")
+
+' Взаимодействия - Клиенты
+Rel(user, user_ui, "Использует веб-приложение", "HTTPS")
+Rel(user_ui, api_gateway, "API запросы", "HTTPS/REST")
+Rel(user_ui, cdn, "Загружает статику (JS/CSS/images)", "HTTPS")
+
+Rel(admin, admin_ui, "Управление системой", "HTTPS")
+Rel(admin_ui, api_gateway, "Admin API calls", "HTTPS/REST")
+
+' API Gateway маршрутизация
+Rel(api_gateway, users_service, "User operations", "HTTP/gRPC")
+Rel(api_gateway, movies_service, "Movie operations", "HTTP/gRPC")
+Rel(api_gateway, payments_service, "Payment operations", "HTTP/gRPC")
+Rel(api_gateway, subscriptions_service, "Subscription operations", "HTTP/gRPC")
+Rel(api_gateway, search_service, "Search queries", "HTTP/gRPC")
+Rel(api_gateway, recommendations_service, "Get recommendations", "HTTP/gRPC")
+Rel(api_gateway, analytics_service, "Analytics queries", "HTTP/gRPC")
+
+' API Gateway использует
+Rel(api_gateway, redis, "Session cache, rate limiting", "TCP/Redis Protocol")
+Rel(api_gateway, users_service, "JWT validation", "HTTP/gRPC")
+
+' Services → Databases (Database per Service)
+Rel(users_service, users_db, "CRUD users", "TCP/PostgreSQL")
+Rel(movies_service, movies_db, "CRUD movies", "TCP/PostgreSQL")
+Rel(payments_service, payments_db, "CRUD payments", "TCP/PostgreSQL")
+Rel(subscriptions_service, subscriptions_db, "CRUD subscriptions", "TCP/PostgreSQL")
+Rel(analytics_service, analytics_db, "Read/Write analytics", "TCP/PostgreSQL")
+
+' Services → Kafka (Event Publishing)
+Rel(users_service, kafka, "Publish: user.registered, user.updated", "TCP/Kafka Protocol")
+Rel(movies_service, kafka, "Publish: movie.created, movie.viewed", "TCP/Kafka Protocol")
+Rel(payments_service, kafka, "Publish: payment.completed, payment.failed", "TCP/Kafka Protocol")
+Rel(subscriptions_service, kafka, "Publish: subscription.created, subscription.renewed", "TCP/Kafka Protocol")
+
+' Kafka → Consumer Services
+Rel(kafka, events_service, "Consume all events", "TCP/Kafka Protocol")
+Rel(kafka, notifications_service, "Consume notification events", "TCP/Kafka Protocol")
+Rel(kafka, recommendations_service, "Consume view events", "TCP/Kafka Protocol")
+Rel(kafka, analytics_service, "Consume all events", "TCP/Kafka Protocol")
+
+' Search Service
+Rel(movies_service, elasticsearch, "Index movies", "HTTPS/REST")
+Rel(search_service, elasticsearch, "Search queries", "HTTPS/REST")
+
+' Cache usage
+Rel(movies_service, redis, "Cache popular movies", "TCP/Redis Protocol")
+Rel(users_service, redis, "Cache user sessions", "TCP/Redis Protocol")
+Rel(recommendations_service, redis, "Cache recommendations", "TCP/Redis Protocol")
+
+' External integrations
+Rel(payments_service, payment_gateway, "Process payments", "HTTPS/REST")
+Rel(notifications_service, email_service, "Send emails", "SMTP/API")
+Rel(notifications_service, sms_service, "Send SMS", "HTTPS/REST")
+Rel(movies_service, storage, "Store/retrieve media", "HTTPS/S3 API")
+
+' Monitoring
+Rel(api_gateway, monitoring, "Metrics", "HTTP")
+Rel(users_service, monitoring, "Metrics", "HTTP")
+Rel(movies_service, monitoring, "Metrics", "HTTP")
+Rel(payments_service, monitoring, "Metrics", "HTTP")
+
+' CDN
+Rel(user_ui, cdn, "Stream video", "HTTPS/HLS")
+Rel(cdn, storage, "Origin", "HTTPS")
+
+@enduml
+

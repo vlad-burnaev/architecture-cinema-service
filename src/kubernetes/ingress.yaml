@@ -11,12 +11,11 @@ spec:
     - host: cinemaabyss.example.com
       http:
         paths:
-          #дополните конфигурацию для /
-          ...
-          - path: /api/events
+          # Все запросы идут через proxy-service (API Gateway)
+          - path: /
             pathType: Prefix
             backend:
               service:
-                name: events-service
+                name: proxy-service
                 port:
-                  number: 8082
+                  number: 8000
